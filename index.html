@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>부스 매니저 — 행사 부스 준비 정리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/[email protected]/dist/web/variable/pretendardvariable.min.css" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.6/babel.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --surface-2: #f4f3ee;
+    --ink: #1a1a1a;
+    --ink-soft: #555248;
+    --ink-muted: #8a8678;
+    --line: #e8e6df;
+    --line-soft: #f0eee8;
+    --accent: #c84630;
+    --accent-soft: #f7e8e4;
+    --warn: #b8860b;
+    --warn-soft: #faf2dd;
+    --ok: #4a6741;
+    --ok-soft: #e8efe5;
+    --indigo: #3d4f7d;
+    --indigo-soft: #e6e9f2;
+    --shadow-sm: 0 1px 2px rgba(26,26,26,0.04), 0 0 0 1px rgba(26,26,26,0.04);
+    --shadow-md: 0 2px 8px rgba(26,26,26,0.06), 0 0 0 1px rgba(26,26,26,0.04);
+    --shadow-lg: 0 12px 40px rgba(26,26,26,0.08), 0 0 0 1px rgba(26,26,26,0.04);
+  }
+  * { font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    background-image:
+      radial-gradient(at 20% 0%, rgba(200,70,48,0.04) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(74,103,65,0.03) 0px, transparent 50%);
+    min-height: 100vh;
+  }
+  .serif { font-family: 'Iowan Old Style', 'Apple Garamond', 'Baskerville', 'Times New Roman', serif; font-style: italic; }
+  .num { font-feature-settings: 'tnum'; font-variant-numeric: tabular-nums; }
+  .scroll-x::-webkit-scrollbar { height: 8px; }
+  .scroll-x::-webkit-scrollbar-track { background: transparent; }
+  .scroll-x::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+  .scroll-x::-webkit-scrollbar-thumb:hover { background: var(--ink-muted); }
+  @keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .panel-enter { animation: slideIn 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+  .overlay-enter { animation: fadeIn 0.2s ease; }
+  .modal-enter { animation: scaleIn 0.2s cubic-bezier(0.32, 0.72, 0, 1); }
+  .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .card-hover:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  input, textarea, select { font-family: inherit; }
+  input:focus, textarea:focus, select:focus { outline: none; }
+  .ring-focus:focus { box-shadow: 0 0 0 3px rgba(200,70,48,0.15); border-color: var(--accent); }
+  .hairline { border-color: var(--line); }
+  .hairline-soft { border-color: var(--line-soft); }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .kanban-scroll { scroll-behavior: smooth; }
+
+  #loader {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; transition: opacity 0.4s ease;
+  }
+  #loader.hide { opacity: 0; pointer-events: none; }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--ink-muted);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  @media print {
+    body { background: white !important; }
+    body::before, body::after { display: none !important; }
+    header, .no-print { display: none !important; }
+    .print-break-inside-avoid { break-inside: avoid; }
+    main { padding: 0 !important; max-width: 100% !important; }
+  }
+</style>
+</head>
+<body>
+<div id="loader">
+  <div class="flex gap-2 items-center">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+  </div>
+</div>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+const STORAGE_KEY = 'booth-manager-v2';
+const SAMPLE_SEEN_KEY = 'booth-manager-sample-seen-v2';
+const SCHEMA_VERSION = 2;
+
+const ITEM_TYPES = {
+  zine: { label: '회지', icon: '📖' },
+  goods: { label: '굿즈', icon: '🎀' },
+  etc: { label: '기타', icon: '✦' },
+};
+
+const ZINE_KINDS = {
+  solo: { label: '개인지', short: '개인' },
+  joint: { label: '합동지', short: '합동' },
+};
+
+const STAGE_FLOWS = {
+  zine: [
+    { id: 'plan', label: '기획' },
+    { id: 'manuscript', label: '원고' },
+    { id: 'edit', label: '편집/조판' },
+    { id: 'cover', label: '표지' },
+    { id: 'printing', label: '입고대기' },
+    { id: 'done', label: '완성' },
+  ],
+  goods: [
+    { id: 'plan', label: '기획' },
+    { id: 'design', label: '시안' },
+    { id: 'order', label: '발주' },
+    { id: 'printing', label: '입고대기' },
+    { id: 'done', label: '완성' },
+  ],
+  etc: [
+    { id: 'plan', label: '기획' },
+    { id: 'doing', label: '진행중' },
+    { id: 'done', label: '완성' },
+  ],
+};
+
+const DEFAULT_CHECKLIST = [
+  '카드결제 단말기 / QR 결제 안내',
+  '잔돈 (1천원/5천원권 충분히)',
+  '가격표·POP·쇼카드',
+  '재고 박스 / 부스 가림막',
+  '봉투·포장재 (재고 수량의 1.5배)',
+  '펜·메모지·테이프·가위',
+  '본인 명함 / 트위터 QR',
+  '음료·간식·휴지 (장시간 대비)',
+  '성인본 분리 디스플레이 / 신분증 확인 안내',
+];
+
+function addDaysISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function uid(prefix = 'id') {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const SAMPLE_DATA = {
+  schemaVersion: SCHEMA_VERSION,
+  events: [
+    {
+      id: 'evt-1',
+      name: '예시 행사 A',
+      date: addDaysISO(21),
+      location: 'A-12',
+      memo: '튜토리얼용 예시 행사예요. 자유롭게 수정/삭제하세요.',
+      checklist: DEFAULT_CHECKLIST.map((text, i) => ({ id: 'c-' + i, text })),
+      items: [
+        { id: 'i-1', name: '단편집 「이름 없는 계절」', type: 'zine', zineKind: 'solo', isNew: true, isAdult: false, stage: 'edit', price: 8000, quantity: 50, deadline: addDaysISO(14), memo: '본문 80% 완성', image: null },
+        { id: 'i-2', name: '재록집 「되감기」', type: 'zine', zineKind: 'solo', isNew: false, isAdult: false, stage: 'cover', price: 12000, quantity: 30, deadline: addDaysISO(16), memo: '표지 시안 컨펌 대기', image: null },
+        { id: 'i-3', name: '합동지 「두 개의 달」', type: 'zine', zineKind: 'joint', isNew: true, isAdult: true, stage: 'manuscript', price: 15000, quantity: 25, deadline: addDaysISO(20), memo: '4명 합동, 19금', image: null },
+        { id: 'i-4', name: '아크릴 키링 (캐릭터 A)', type: 'goods', stage: 'order', price: 6000, quantity: 40, deadline: addDaysISO(12), memo: '발주처 견적 받음', image: null },
+        { id: 'i-5', name: '스티커 세트', type: 'goods', stage: 'printing', price: 3000, quantity: 60, deadline: addDaysISO(7), memo: '', image: null },
+        { id: 'i-6', name: '명함 페이퍼', type: 'etc', stage: 'doing', price: 0, quantity: 100, deadline: addDaysISO(18), memo: '무료배포', image: null },
+      ],
+    },
+  ],
+};
+
+function daysUntil(isoDate) {
+  if (!isoDate) return null;
+  const target = new Date(isoDate + 'T00:00:00');
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.round((target - now) / (1000 * 60 * 60 * 24));
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function formatDateLong(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${days[d.getDay()]})`;
+}
+
+function getStageProgress(item) {
+  const flow = STAGE_FLOWS[item.type] || STAGE_FLOWS.etc;
+  const idx = flow.findIndex(s => s.id === item.stage);
+  if (idx < 0) return 0;
+  return Math.round(((idx + 1) / flow.length) * 100);
+}
+
+function getEventProgress(event) {
+  if (!event.items || event.items.length === 0) return 0;
+  const total = event.items.reduce((sum, item) => sum + getStageProgress(item), 0);
+  return Math.round(total / event.items.length);
+}
+
+function compressImage(file, maxDim = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round(height * (maxDim / width));
+            width = maxDim;
+          } else {
+            width = Math.round(width * (maxDim / height));
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function useStorage() {
+  const [data, setData] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.events) {
+          parsed.events.forEach(e => {
+            if (!e.checklist) e.checklist = DEFAULT_CHECKLIST.map((t, i) => ({ id: 'c-' + i + '-' + e.id, text: t }));
+            (e.items || []).forEach(i => {
+              if (i.type === 'free') { i.type = 'etc'; i.price = 0; }
+              if (!i.image) i.image = null;
+              if (i.type === 'zine') {
+                if (!i.zineKind || i.zineKind === 'anthology') i.zineKind = i.zineKind === 'anthology' ? 'joint' : 'solo';
+                if (typeof i.isNew !== 'boolean') i.isNew = true;
+                if (typeof i.isAdult !== 'boolean') i.isAdult = false;
+              }
+            });
+          });
+        }
+        return parsed;
+      }
+      return { schemaVersion: SCHEMA_VERSION, events: [] };
+    } catch {
+      return { schemaVersion: SCHEMA_VERSION, events: [] };
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error('Storage write failed', e);
+      if (e.name === 'QuotaExceededError') {
+        alert('저장 공간이 부족합니다. 이미지 일부를 삭제하거나 행사를 정리해주세요.');
+      }
+    }
+  }, [data]);
+
+  return [data, setData];
+}
+
+function useConfirm() {
+  const [state, setState] = useState(null);
+  const confirm = useCallback((options) => {
+    return new Promise((resolve) => {
+      setState({ ...options, resolve });
+    });
+  }, []);
+  const dialog = state ? (
+    <ConfirmDialog
+      title={state.title}
+      message={state.message}
+      confirmLabel={state.confirmLabel || '확인'}
+      cancelLabel={state.cancelLabel || '취소'}
+      danger={state.danger}
+      onConfirm={() => { state.resolve(true); setState(null); }}
+      onCancel={() => { state.resolve(false); setState(null); }}
+    />
+  ) : null;
+  return [confirm, dialog];
+}
+
+function ConfirmDialog({ title, message, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-[60] overlay-enter" onClick={onCancel}></div>
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-6 pointer-events-none">
+        <div className="bg-white rounded-2xl max-w-sm w-full p-6 modal-enter pointer-events-auto" style={{ boxShadow: 'var(--shadow-lg)' }}>
+          <div className="text-base font-semibold tracking-tight mb-2">{title}</div>
+          <p className="text-sm text-[var(--ink-soft)] leading-relaxed mb-5">{message}</p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={onCancel} className="text-sm font-medium px-4 py-2 rounded-full text-[var(--ink-soft)] hover:bg-[var(--surface-2)]">{cancelLabel}</button>
+            <button
+              onClick={onConfirm}
+              className="text-sm font-medium px-4 py-2 rounded-full text-white"
+              style={{ background: danger ? 'var(--accent)' : 'var(--ink)' }}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function App() {
+  const [data, setData] = useStorage();
+  const [view, setView] = useState({ name: 'dashboard' });
+  const [editingItem, setEditingItem] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [showSampleModal, setShowSampleModal] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2400);
+  }, []);
+
+  useEffect(() => {
+    const seen = localStorage.getItem(SAMPLE_SEEN_KEY);
+    if (!seen && (!data.events || data.events.length === 0)) {
+      setShowSampleModal(true);
+    }
+  }, []);
+
+  const acceptSample = () => {
+    setData(SAMPLE_DATA);
+    localStorage.setItem(SAMPLE_SEEN_KEY, '1');
+    setShowSampleModal(false);
+  };
+  const declineSample = () => {
+    localStorage.setItem(SAMPLE_SEEN_KEY, '1');
+    setShowSampleModal(false);
+  };
+
+  const upsertEvent = useCallback((event) => {
+    setData(d => {
+      const exists = d.events.find(e => e.id === event.id);
+      const events = exists
+        ? d.events.map(e => e.id === event.id ? { ...e, ...event } : e)
+        : [...d.events, {
+            ...event,
+            id: event.id || uid('evt'),
+            items: event.items || [],
+            checklist: event.checklist || DEFAULT_CHECKLIST.map((t) => ({ id: uid('c'), text: t })),
+          }];
+      return { ...d, events };
+    });
+  }, [setData]);
+
+  const deleteEvent = useCallback(async (eventId) => {
+    const event = data.events.find(e => e.id === eventId);
+    if (!event) return;
+    const ok = await confirm({
+      title: '행사 삭제',
+      message: `"${event.name}"을 정말 삭제할까요? 등록된 ${event.items.length}개 품목도 함께 사라집니다.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    setData(d => ({ ...d, events: d.events.filter(e => e.id !== eventId) }));
+    if (view.name !== 'dashboard') setView({ name: 'dashboard' });
+    showToast('행사가 삭제되었습니다.');
+  }, [data, setData, confirm, view, showToast]);
+
+  const upsertItem = useCallback((eventId, item) => {
+    setData(d => ({
+      ...d,
+      events: d.events.map(e => {
+        if (e.id !== eventId) return e;
+        const exists = e.items.find(i => i.id === item.id);
+        const items = exists
+          ? e.items.map(i => i.id === item.id ? { ...i, ...item } : i)
+          : [...e.items, { ...item, id: item.id || uid('item') }];
+        return { ...e, items };
+      }),
+    }));
+  }, [setData]);
+
+  const deleteItem = useCallback(async (eventId, itemId) => {
+    const event = data.events.find(e => e.id === eventId);
+    const item = event?.items.find(i => i.id === itemId);
+    if (!item) return;
+    const ok = await confirm({
+      title: '품목 삭제',
+      message: `"${item.name}"을 삭제할까요?`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    setData(d => ({
+      ...d,
+      events: d.events.map(e =>
+        e.id === eventId ? { ...e, items: e.items.filter(i => i.id !== itemId) } : e
+      ),
+    }));
+    showToast('품목이 삭제되었습니다.');
+    return true;
+  }, [data, setData, confirm, showToast]);
+
+  const updateItemStage = useCallback((eventId, itemId, stage) => {
+    setData(d => ({
+      ...d,
+      events: d.events.map(e => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          items: e.items.map(i => i.id === itemId ? { ...i, stage } : i),
+        };
+      }),
+    }));
+  }, [setData]);
+
+  const updateChecklist = useCallback((eventId, checklist) => {
+    setData(d => ({
+      ...d,
+      events: d.events.map(e => e.id === eventId ? { ...e, checklist } : e),
+    }));
+  }, [setData]);
+
+  const exportData = useCallback(() => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `booth-manager-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('백업 파일을 내려받았습니다.');
+  }, [data, showToast]);
+
+  const importData = useCallback(async (file) => {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed.events || !Array.isArray(parsed.events)) {
+        showToast('올바른 백업 파일이 아닙니다.');
+        return;
+      }
+      const ok = await confirm({
+        title: '데이터 가져오기',
+        message: `${parsed.events.length}개 행사를 가져옵니다. 현재 데이터를 모두 덮어쓸까요? (기존 데이터는 사라집니다)`,
+        confirmLabel: '덮어쓰기',
+        danger: true,
+      });
+      if (!ok) return;
+      setData(parsed);
+      showToast('데이터를 가져왔습니다.');
+    } catch (e) {
+      showToast('파일을 읽지 못했습니다.');
+    }
+  }, [setData, confirm, showToast]);
+
+  const currentEvent = view.name === 'event' || view.name === 'preview'
+    ? data.events.find(e => e.id === view.eventId)
+    : null;
+
+  return (
+    <div className="min-h-screen">
+      <Header view={view} currentEvent={currentEvent} onHome={() => setView({ name: 'dashboard' })} />
+      <main className="max-w-6xl mx-auto px-6 pb-32">
+        {view.name === 'dashboard' && (
+          <Dashboard
+            events={data.events}
+            onOpenEvent={(id) => setView({ name: 'event', eventId: id })}
+            onNewEvent={() => setEditingEvent('new')}
+            onEditEvent={(e) => setEditingEvent(e)}
+            onDeleteEvent={deleteEvent}
+            onExport={exportData}
+            onImport={importData}
+          />
+        )}
+        {view.name === 'event' && currentEvent && (
+          <EventBoard
+            event={currentEvent}
+            onAddItem={() => setEditingItem({ eventId: currentEvent.id, item: null })}
+            onEditItem={(item) => setEditingItem({ eventId: currentEvent.id, item })}
+            onUpdateStage={(itemId, stage) => updateItemStage(currentEvent.id, itemId, stage)}
+            onPreview={() => setView({ name: 'preview', eventId: currentEvent.id })}
+            onEditEvent={() => setEditingEvent(currentEvent)}
+            onDeleteEvent={() => deleteEvent(currentEvent.id)}
+          />
+        )}
+        {view.name === 'preview' && currentEvent && (
+          <BoothPreview
+            event={currentEvent}
+            onBack={() => setView({ name: 'event', eventId: currentEvent.id })}
+            onUpdateChecklist={(cl) => updateChecklist(currentEvent.id, cl)}
+          />
+        )}
+      </main>
+
+      {editingItem && (
+        <ItemEditor
+          eventId={editingItem.eventId}
+          item={editingItem.item}
+          onSave={(item) => { upsertItem(editingItem.eventId, item); setEditingItem(null); }}
+          onDelete={async () => {
+            if (editingItem.item) {
+              const success = await deleteItem(editingItem.eventId, editingItem.item.id);
+              if (success) setEditingItem(null);
+            }
+          }}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {editingEvent && (
+        <EventEditor
+          event={editingEvent === 'new' ? null : editingEvent}
+          onSave={(e) => { upsertEvent(e); setEditingEvent(null); }}
+          onClose={() => setEditingEvent(null)}
+        />
+      )}
+
+      {showSampleModal && <WelcomeModal onAccept={acceptSample} onDecline={declineSample} />}
+      {confirmDialog}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] modal-enter no-print">
+          <div className="px-4 py-3 rounded-full text-sm text-white shadow-lg" style={{ background: 'var(--ink)' }}>
+            {toast}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Header({ view, currentEvent, onHome }) {
+  return (
+    <header className="sticky top-0 z-30 backdrop-blur-xl bg-[rgba(250,250,247,0.85)] border-b hairline no-print">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-4">
+        <button onClick={onHome} className="flex items-center gap-2.5 group">
+          <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: 'var(--ink)' }}>
+            <span className="text-white text-sm font-bold">B</span>
+          </div>
+          <div className="text-left">
+            <div className="text-[15px] font-semibold tracking-tight">부스 매니저</div>
+          </div>
+        </button>
+        {view.name !== 'dashboard' && currentEvent && (
+          <>
+            <span className="text-[var(--ink-muted)] text-sm">/</span>
+            <span className="text-sm text-[var(--ink-soft)] font-medium truncate">{currentEvent.name}</span>
+            {view.name === 'preview' && (
+              <>
+                <span className="text-[var(--ink-muted)] text-sm">/</span>
+                <span className="text-sm text-[var(--ink-soft)]">미리보기</span>
+              </>
+            )}
+          </>
+        )}
+        <div className="ml-auto text-xs text-[var(--ink-muted)] hidden sm:block">
+          <span className="serif">a quiet workspace for booth-makers</span>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Dashboard({ events, onOpenEvent, onNewEvent, onEditEvent, onDeleteEvent, onExport, onImport }) {
+  const fileInputRef = useRef(null);
+  const sorted = [...events].sort((a, b) => {
+    const da = a.date || '9999-12-31';
+    const db = b.date || '9999-12-31';
+    return da.localeCompare(db);
+  });
+
+  const urgentItems = events.flatMap(e =>
+    e.items
+      .filter(i => i.stage !== 'done' && i.deadline && daysUntil(i.deadline) !== null && daysUntil(i.deadline) <= 7)
+      .map(i => ({ event: e, item: i, days: daysUntil(i.deadline) }))
+  ).sort((a, b) => a.days - b.days);
+
+  const totalItems = events.reduce((sum, e) => sum + e.items.length, 0);
+  const completedItems = events.reduce((sum, e) => sum + e.items.filter(i => i.stage === 'done').length, 0);
+
+  const handleImportClick = () => fileInputRef.current?.click();
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onImport(file);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="pt-12 pb-8">
+      <div className="mb-14">
+        <div className="text-xs uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-3">dashboard</div>
+        <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-[1.05] mb-4">
+          어떤 부스를<br />
+          <span className="serif font-normal text-[var(--accent)]">준비하고 계신가요</span>
+        </h1>
+        <p className="text-[var(--ink-soft)] text-base max-w-md leading-relaxed">
+          행사별로 회지·굿즈를 한곳에서 관리하세요.
+          모든 데이터는 브라우저에만 저장됩니다.
+        </p>
+      </div>
+
+      {events.length > 0 && (
+        <div className="grid grid-cols-3 gap-4 mb-10">
+          <StatBox label="진행 중인 행사" value={events.length} />
+          <StatBox label="전체 품목" value={totalItems} />
+          <StatBox label="완성 품목" value={completedItems} sub={totalItems > 0 ? `${Math.round(completedItems/totalItems*100)}%` : null} />
+        </div>
+      )}
+
+      {urgentItems.length > 0 && (
+        <div className="mb-10 rounded-2xl p-5" style={{ background: 'var(--accent-soft)', border: '1px solid rgba(200,70,48,0.15)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }}></span>
+            <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>임박한 마감</h3>
+          </div>
+          <div className="space-y-2">
+            {urgentItems.slice(0, 5).map(({ event, item, days }) => (
+              <button
+                key={item.id}
+                onClick={() => onOpenEvent(event.id)}
+                className="w-full text-left flex items-center justify-between py-2 px-3 rounded-lg hover:bg-white/50 transition"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-base">{ITEM_TYPES[item.type].icon}</span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">{item.name}</div>
+                    <div className="text-xs text-[var(--ink-muted)]">{event.name}</div>
+                  </div>
+                </div>
+                <div className="text-sm font-semibold shrink-0 ml-3 num" style={{ color: days < 0 ? 'var(--accent)' : days <= 3 ? 'var(--accent)' : 'var(--warn)' }}>
+                  {days < 0 ? `${Math.abs(days)}일 지남` : days === 0 ? '오늘' : `D-${days}`}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-baseline justify-between mb-5 flex-wrap gap-3">
+        <h2 className="text-xl font-semibold tracking-tight">행사 목록</h2>
+        <div className="flex gap-2 items-center">
+          <button onClick={onExport} className="text-xs font-medium px-3 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition text-[var(--ink-soft)]" title="모든 데이터를 JSON 파일로 내보내기">
+            ↓ 내보내기
+          </button>
+          <button onClick={handleImportClick} className="text-xs font-medium px-3 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition text-[var(--ink-soft)]" title="JSON 파일에서 데이터 가져오기">
+            ↑ 가져오기
+          </button>
+          <input ref={fileInputRef} type="file" accept=".json,application/json" onChange={handleFileChange} className="hidden" />
+          <button onClick={onNewEvent} className="text-sm font-medium px-4 py-2 rounded-full text-white transition hover:opacity-90" style={{ background: 'var(--ink)' }}>
+            + 새 행사
+          </button>
+        </div>
+      </div>
+
+      {events.length === 0 ? (
+        <EmptyEvents onNewEvent={onNewEvent} />
+      ) : (
+        <div className="grid md:grid-cols-2 gap-4">
+          {sorted.map(event => (
+            <EventCard
+              key={event.id}
+              event={event}
+              onOpen={() => onOpenEvent(event.id)}
+              onEdit={() => onEditEvent(event)}
+              onDelete={() => onDeleteEvent(event.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatBox({ label, value, sub }) {
+  return (
+    <div className="rounded-xl p-4 bg-white border hairline">
+      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">{label}</div>
+      <div className="flex items-baseline gap-2">
+        <div className="text-3xl font-bold tracking-tight num">{value}</div>
+        {sub && <div className="text-xs text-[var(--ink-muted)] num">{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function EmptyEvents({ onNewEvent }) {
+  return (
+    <div className="rounded-2xl border-2 border-dashed hairline p-12 text-center bg-white/40">
+      <div className="serif text-2xl text-[var(--ink-muted)] mb-2">no events yet</div>
+      <p className="text-sm text-[var(--ink-soft)] mb-5">첫 행사를 등록해서 시작해보세요.</p>
+      <button onClick={onNewEvent} className="text-sm font-medium px-5 py-2.5 rounded-full text-white" style={{ background: 'var(--ink)' }}>
+        + 새 행사 만들기
+      </button>
+    </div>
+  );
+}
+
+function EventCard({ event, onOpen, onEdit, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
+
+  const days = daysUntil(event.date);
+  const progress = getEventProgress(event);
+  const itemCount = event.items.length;
+  const doneCount = event.items.filter(i => i.stage === 'done').length;
+
+  const dayColor = days === null ? 'var(--ink-muted)'
+    : days < 0 ? 'var(--ink-muted)'
+    : days <= 7 ? 'var(--accent)'
+    : days <= 30 ? 'var(--warn)'
+    : 'var(--ok)';
+
+  return (
+    <div onClick={onOpen} className="card-hover cursor-pointer rounded-2xl p-5 bg-white border hairline relative overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'var(--line-soft)' }}>
+        <div className="h-full transition-all" style={{ width: `${progress}%`, background: progress === 100 ? 'var(--ok)' : 'var(--accent)' }}></div>
+      </div>
+
+      <div className="flex items-start justify-between mb-4">
+        <div className="min-w-0 flex-1">
+          <div className="text-lg font-semibold tracking-tight truncate">{event.name}</div>
+          <div className="text-sm text-[var(--ink-muted)] mt-0.5">
+            {event.date ? formatDateLong(event.date) : '날짜 미정'}
+            {event.location && <span className="ml-2">· {event.location}</span>}
+          </div>
+        </div>
+        <div className="text-right shrink-0 ml-3 flex items-start gap-1">
+          <div className="text-2xl font-bold tracking-tight num" style={{ color: dayColor }}>
+            {days === null ? '–' : days < 0 ? `+${Math.abs(days)}` : days === 0 ? 'D-day' : `D-${days}`}
+          </div>
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+              className="w-7 h-7 rounded-full hover:bg-[var(--surface-2)] flex items-center justify-center text-[var(--ink-muted)] hover:text-[var(--ink)] transition"
+              title="더보기"
+            >⋯</button>
+            {menuOpen && (
+              <div onClick={e => e.stopPropagation()} className="absolute right-0 top-8 w-32 rounded-xl bg-white border hairline overflow-hidden z-10" style={{ boxShadow: 'var(--shadow-lg)' }}>
+                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onEdit(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--surface-2)] transition">편집</button>
+                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete(); }} className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--accent-soft)] transition text-[var(--accent)]">삭제</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-sm">
+        <div className="text-[var(--ink-soft)]">
+          <span className="num font-medium">{doneCount}</span>
+          <span className="text-[var(--ink-muted)]"> / {itemCount} 완성</span>
+        </div>
+        <div className="text-xs text-[var(--ink-muted)] num">{progress}%</div>
+      </div>
+    </div>
+  );
+}
+
+function EventBoard({ event, onAddItem, onEditItem, onUpdateStage, onPreview, onEditEvent, onDeleteEvent }) {
+  const [filterType, setFilterType] = useState('all');
+  const [draggingId, setDraggingId] = useState(null);
+  const scrollRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ canLeft: false, canRight: false });
+
+  const stages = useMemo(() => {
+    if (filterType !== 'all') return STAGE_FLOWS[filterType];
+    return STAGE_FLOWS.zine;
+  }, [filterType]);
+
+  const filteredItems = filterType === 'all'
+    ? event.items
+    : event.items.filter(i => i.type === filterType);
+
+  const itemsByStage = useMemo(() => {
+    const byStage = {};
+    stages.forEach(s => byStage[s.id] = []);
+
+    filteredItems.forEach(item => {
+      const itemFlow = STAGE_FLOWS[item.type] || STAGE_FLOWS.etc;
+      const itemIdx = itemFlow.findIndex(s => s.id === item.stage);
+      if (itemIdx < 0) return;
+
+      if (filterType !== 'all') {
+        if (byStage[item.stage]) byStage[item.stage].push(item);
+      } else {
+        const ratio = (itemIdx + 1) / itemFlow.length;
+        const targetIdx = Math.min(stages.length - 1, Math.ceil(ratio * stages.length) - 1);
+        const targetStage = stages[targetIdx].id;
+        if (byStage[targetStage]) byStage[targetStage].push(item);
+      }
+    });
+    return byStage;
+  }, [filteredItems, stages, filterType]);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setScrollState({
+      canLeft: el.scrollLeft > 4,
+      canRight: el.scrollLeft < el.scrollWidth - el.clientWidth - 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateScrollState);
+    window.addEventListener('resize', updateScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [updateScrollState, filteredItems.length]);
+
+  const scrollBy = (direction) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * 300, behavior: 'smooth' });
+  };
+
+  const handleDragStart = (e, itemId) => {
+    setDraggingId(itemId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, stageId) => {
+    e.preventDefault();
+    if (!draggingId) return;
+    const item = event.items.find(i => i.id === draggingId);
+    if (!item) return;
+
+    const itemFlow = STAGE_FLOWS[item.type] || STAGE_FLOWS.etc;
+
+    if (filterType !== 'all') {
+      onUpdateStage(draggingId, stageId);
+    } else {
+      const stageIdx = stages.findIndex(s => s.id === stageId);
+      const ratio = (stageIdx + 0.5) / stages.length;
+      const itemStageIdx = Math.min(itemFlow.length - 1, Math.floor(ratio * itemFlow.length));
+      onUpdateStage(draggingId, itemFlow[itemStageIdx].id);
+    }
+    setDraggingId(null);
+  };
+
+  return (
+    <div className="pt-10">
+      <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-xs uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-2">event board</div>
+          <h1 className="text-4xl font-bold tracking-tight">{event.name}</h1>
+          <div className="text-[var(--ink-soft)] mt-1.5 text-sm">
+            {event.date ? formatDateLong(event.date) : '날짜 미정'}
+            {event.location && <span className="ml-2">· {event.location}</span>}
+            {event.date && daysUntil(event.date) !== null && (
+              <span className="ml-2 num font-semibold" style={{ color: 'var(--accent)' }}>
+                {daysUntil(event.date) < 0 ? `+${Math.abs(daysUntil(event.date))}일` : daysUntil(event.date) === 0 ? 'D-day' : `D-${daysUntil(event.date)}`}
+              </span>
+            )}
+          </div>
+          {event.memo && <div className="text-sm text-[var(--ink-soft)] mt-3 max-w-xl leading-relaxed">{event.memo}</div>}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onPreview} className="text-sm font-medium px-4 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition">🪧 부스 미리보기</button>
+          <button onClick={onEditEvent} className="text-sm font-medium px-4 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition">편집</button>
+          <button onClick={onDeleteEvent} className="text-sm font-medium px-3 py-2 rounded-full border hairline bg-white hover:bg-[var(--accent-soft)] transition text-[var(--accent)]">삭제</button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <FilterChip active={filterType === 'all'} onClick={() => setFilterType('all')}>
+          전체 <span className="num text-[var(--ink-muted)] ml-1">{event.items.length}</span>
+        </FilterChip>
+        {Object.entries(ITEM_TYPES).map(([key, t]) => {
+          const count = event.items.filter(i => i.type === key).length;
+          if (count === 0) return null;
+          return (
+            <FilterChip key={key} active={filterType === key} onClick={() => setFilterType(key)}>
+              {t.icon} {t.label} <span className="num text-[var(--ink-muted)] ml-1">{count}</span>
+            </FilterChip>
+          );
+        })}
+        <button onClick={onAddItem} className="ml-auto text-sm font-medium px-4 py-2 rounded-full text-white transition hover:opacity-90" style={{ background: 'var(--ink)' }}>
+          + 새 품목
+        </button>
+      </div>
+
+      {event.items.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed hairline p-12 text-center bg-white/40">
+          <div className="serif text-2xl text-[var(--ink-muted)] mb-2">empty booth</div>
+          <p className="text-sm text-[var(--ink-soft)] mb-5">아직 등록된 품목이 없어요.</p>
+          <button onClick={onAddItem} className="text-sm font-medium px-5 py-2.5 rounded-full text-white" style={{ background: 'var(--ink)' }}>
+            + 첫 품목 추가하기
+          </button>
+        </div>
+      ) : (
+        <div className="relative">
+          {scrollState.canLeft && (
+            <button onClick={() => scrollBy(-1)} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white border hairline shadow-md flex items-center justify-center hover:bg-[var(--surface-2)] transition" style={{ marginLeft: '-12px' }} aria-label="왼쪽으로 스크롤">‹</button>
+          )}
+          {scrollState.canRight && (
+            <button onClick={() => scrollBy(1)} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white border hairline shadow-md flex items-center justify-center hover:bg-[var(--surface-2)] transition" style={{ marginRight: '-12px' }} aria-label="오른쪽으로 스크롤">›</button>
+          )}
+          <div ref={scrollRef} className="overflow-x-auto scroll-x kanban-scroll pb-4">
+            <div className="flex gap-3" style={{ minWidth: 'min-content' }}>
+              {stages.map(stage => (
+                <KanbanColumn
+                  key={stage.id}
+                  stage={stage}
+                  items={itemsByStage[stage.id] || []}
+                  onItemClick={onEditItem}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, stage.id)}
+                  draggingId={draggingId}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterChip({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} className="text-sm px-3 py-1.5 rounded-full transition border" style={{ background: active ? 'var(--ink)' : 'var(--surface)', color: active ? 'white' : 'var(--ink-soft)', borderColor: active ? 'var(--ink)' : 'var(--line)' }}>
+      {children}
+    </button>
+  );
+}
+
+function KanbanColumn({ stage, items, onItemClick, onDragStart, onDragOver, onDrop, draggingId }) {
+  return (
+    <div className="w-72 shrink-0 rounded-xl p-3" style={{ background: 'var(--surface-2)' }} onDragOver={onDragOver} onDrop={onDrop}>
+      <div className="flex items-center justify-between px-2 py-1.5 mb-2">
+        <div className="text-[13px] font-semibold tracking-tight">{stage.label}</div>
+        <div className="text-xs text-[var(--ink-muted)] num">{items.length}</div>
+      </div>
+      <div className="space-y-2 min-h-[100px]">
+        {items.map(item => (
+          <ItemCard key={item.id} item={item} onClick={() => onItemClick(item)} onDragStart={(e) => onDragStart(e, item.id)} isDragging={draggingId === item.id} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ItemBadges({ item }) {
+  const badges = [];
+  if (item.type === 'zine') {
+    if (item.zineKind && ZINE_KINDS[item.zineKind]) {
+      badges.push({ key: 'kind', label: ZINE_KINDS[item.zineKind].short, color: 'var(--indigo)', bg: 'var(--indigo-soft)' });
+    }
+    if (item.isNew) {
+      badges.push({ key: 'new', label: '신간', color: 'var(--ok)', bg: 'var(--ok-soft)' });
+    } else {
+      badges.push({ key: 'old', label: '구간', color: 'var(--ink-muted)', bg: 'var(--surface-2)' });
+    }
+    if (item.isAdult) {
+      badges.push({ key: 'adult', label: '19', color: 'white', bg: 'var(--accent)' });
+    }
+  }
+  if (item.price === 0) {
+    badges.push({ key: 'free', label: '무료', color: 'var(--accent)', bg: 'var(--accent-soft)' });
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {badges.map(b => (
+        <span key={b.key} className="px-1.5 py-0.5 text-[10px] font-bold rounded leading-none inline-flex items-center whitespace-nowrap" style={{ color: b.color, background: b.bg }}>
+          {b.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ItemCard({ item, onClick, onDragStart, isDragging }) {
+  const days = daysUntil(item.deadline);
+  const dayColor = days === null ? 'var(--ink-muted)' : days < 0 ? 'var(--accent)' : days <= 3 ? 'var(--accent)' : days <= 7 ? 'var(--warn)' : 'var(--ok)';
+  const isDone = item.stage === 'done';
+
+  return (
+    <div draggable onDragStart={onDragStart} onClick={onClick} className="rounded-lg p-3 bg-white border hairline-soft cursor-grab active:cursor-grabbing card-hover" style={{ opacity: isDragging ? 0.4 : 1, boxShadow: 'var(--shadow-sm)' }}>
+      <div className="flex items-start gap-2 mb-2">
+        {item.image ? (
+          <img src={item.image} alt="" className="w-9 h-9 rounded object-cover shrink-0 border hairline-soft" />
+        ) : (
+          <span className="text-base shrink-0 w-9 h-9 flex items-center justify-center rounded bg-[var(--surface-2)]">{ITEM_TYPES[item.type].icon}</span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-medium leading-snug" style={{ textDecoration: isDone ? 'line-through' : 'none', color: isDone ? 'var(--ink-muted)' : 'var(--ink)' }}>
+            {item.name}
+          </div>
+          <div className="mt-1">
+            <ItemBadges item={item} />
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-[11px]">
+        <div className="flex items-center gap-2">
+          {item.price > 0 && <span className="text-[var(--ink-muted)] num">₩{item.price.toLocaleString()}</span>}
+          {item.quantity > 0 && <span className="text-[var(--ink-muted)] num">×{item.quantity}</span>}
+        </div>
+        {days !== null && !isDone && (
+          <span className="num font-semibold" style={{ color: dayColor }}>
+            {days < 0 ? `+${Math.abs(days)}` : days === 0 ? 'D' : `D-${days}`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BoothPreview({ event, onBack, onUpdateChecklist }) {
+  const [filterType, setFilterType] = useState('all');
+  const [sortMode, setSortMode] = useState('display'); // 'display' | 'name'
+  const [detailItem, setDetailItem] = useState(null);
+
+  const items = event.items;
+  const paidItems = items.filter(i => i.price > 0);
+  const totalRevenue = paidItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+  const totalSpecies = items.length;
+  const zineCount = items.filter(i => i.type === 'zine').length;
+  const goodsCount = items.filter(i => i.type === 'goods').length;
+  const freeCount = items.filter(i => i.price === 0).length;
+  const adultCount = items.filter(i => i.isAdult).length;
+
+  const checklist = event.checklist || [];
+
+  // Filter then sort for booth display
+  const displayItems = useMemo(() => {
+    let result = filterType === 'all' ? items : items.filter(i => i.type === filterType);
+    result = [...result];
+
+    if (sortMode === 'name') {
+      result.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    } else {
+      // 'display' — booth-friendly default:
+      // 1) paid before free  2) zine > goods > etc  3) new before old (zine only)  4) name
+      const typeOrder = { zine: 0, goods: 1, etc: 2 };
+      result.sort((a, b) => {
+        // Free items go last
+        const aFree = a.price === 0 ? 1 : 0;
+        const bFree = b.price === 0 ? 1 : 0;
+        if (aFree !== bFree) return aFree - bFree;
+        // Type order
+        const at = typeOrder[a.type] ?? 99;
+        const bt = typeOrder[b.type] ?? 99;
+        if (at !== bt) return at - bt;
+        // Within zines, new first
+        if (a.type === 'zine' && b.type === 'zine') {
+          if (a.isNew !== b.isNew) return a.isNew ? -1 : 1;
+        }
+        // Then by name
+        return a.name.localeCompare(b.name, 'ko');
+      });
+    }
+    return result;
+  }, [items, filterType, sortMode]);
+
+  const urgentReminders = useMemo(() => {
+    return items
+      .filter(i => i.stage !== 'done' && i.deadline && daysUntil(i.deadline) !== null && daysUntil(i.deadline) <= 14)
+      .map(i => ({
+        id: 'auto-' + i.id,
+        text: `${ITEM_TYPES[i.type].icon} ${i.name} 마감 확인 (${formatDate(i.deadline)})`,
+      }));
+  }, [items]);
+
+  const addChecklistItem = () => {
+    const text = prompt('체크리스트 항목 추가');
+    if (!text || !text.trim()) return;
+    onUpdateChecklist([...checklist, { id: uid('c'), text: text.trim() }]);
+  };
+
+  const editChecklistItem = (id) => {
+    const item = checklist.find(c => c.id === id);
+    if (!item) return;
+    const text = prompt('항목 수정', item.text);
+    if (!text || !text.trim()) return;
+    onUpdateChecklist(checklist.map(c => c.id === id ? { ...c, text: text.trim() } : c));
+  };
+
+  const deleteChecklistItem = (id) => {
+    onUpdateChecklist(checklist.filter(c => c.id !== id));
+  };
+
+  return (
+    <div className="pt-10">
+      <button onClick={onBack} className="text-sm text-[var(--ink-muted)] hover:text-[var(--ink)] mb-6 flex items-center gap-1 no-print">← 보드로 돌아가기</button>
+
+      <div className="mb-8">
+        <div className="text-xs uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-2">booth preview</div>
+        <h1 className="text-4xl font-bold tracking-tight">당일 부스, 이렇게 됩니다</h1>
+        <p className="text-[var(--ink-soft)] mt-2">{event.name} · {formatDateLong(event.date)}</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 print-break-inside-avoid">
+        <PreviewStat label="총 종수" value={totalSpecies} unit="종" />
+        <PreviewStat label="회지 / 굿즈 / 기타" value={`${zineCount}·${goodsCount}·${items.length - zineCount - goodsCount}`} mono />
+        <PreviewStat label="총 재고" value={items.reduce((s, i) => s + i.quantity, 0)} unit="개" />
+        <PreviewStat label="예상 최대 매출" value={`₩${totalRevenue.toLocaleString()}`} mono />
+      </div>
+
+      {(freeCount > 0 || adultCount > 0) && (
+        <div className="flex gap-2 mb-6 text-xs no-print flex-wrap">
+          {freeCount > 0 && <span className="px-3 py-1.5 rounded-full" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>무료배포물 {freeCount}종</span>}
+          {adultCount > 0 && <span className="px-3 py-1.5 rounded-full font-semibold" style={{ background: 'var(--accent)', color: 'white' }}>성인본 {adultCount}종 — 분리 디스플레이 필요</span>}
+        </div>
+      )}
+
+      <div className="mb-10 print-break-inside-avoid">
+        <div className="flex items-baseline justify-between mb-4 flex-wrap gap-3">
+          <h2 className="text-xl font-semibold tracking-tight">가판 미리보기</h2>
+          <div className="flex items-center gap-3 text-xs no-print">
+            <span className="text-[var(--ink-muted)]">정렬</span>
+            <button
+              onClick={() => setSortMode(sortMode === 'display' ? 'name' : 'display')}
+              className="px-3 py-1.5 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition font-medium"
+            >
+              {sortMode === 'display' ? '🪧 진열순' : '🔤 이름순'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap no-print">
+          <FilterChip active={filterType === 'all'} onClick={() => setFilterType('all')}>
+            전체 <span className="num text-[var(--ink-muted)] ml-1">{items.length}</span>
+          </FilterChip>
+          {Object.entries(ITEM_TYPES).map(([key, t]) => {
+            const count = items.filter(i => i.type === key).length;
+            if (count === 0) return null;
+            return (
+              <FilterChip key={key} active={filterType === key} onClick={() => setFilterType(key)}>
+                {t.icon} {t.label} <span className="num text-[var(--ink-muted)] ml-1">{count}</span>
+              </FilterChip>
+            );
+          })}
+        </div>
+
+        <div className="rounded-2xl p-6 md:p-8 relative" style={{ background: 'linear-gradient(180deg, #f4f3ee 0%, #e8e6df 100%)', border: '1px solid var(--line)', minHeight: '320px' }}>
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-medium tracking-wider" style={{ background: 'var(--ink)', color: 'white' }}>
+            {event.location || '부스 위치 미정'}
+          </div>
+
+          {displayItems.length === 0 ? (
+            <div className="text-center py-16 text-[var(--ink-muted)]">
+              <div className="serif text-2xl mb-2">empty stall</div>
+              <p className="text-sm">{filterType === 'all' ? '아직 등록된 품목이 없어요.' : '이 분류에 해당하는 품목이 없어요.'}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-6">
+              {displayItems.map(item => (
+                <BoothItemCard key={item.id} item={item} onClick={() => setDetailItem(item)} />
+              ))}
+            </div>
+          )}
+
+          <div className="absolute bottom-0 left-0 right-0 h-2 rounded-b-2xl" style={{ background: 'var(--ink)', opacity: 0.08 }}></div>
+        </div>
+        <p className="text-[11px] text-[var(--ink-muted)] mt-2 no-print">품목을 클릭하면 메모와 상세 정보를 볼 수 있어요.</p>
+      </div>
+
+      <div className="mb-10 print-break-inside-avoid">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold tracking-tight">당일 체크리스트</h2>
+          <button onClick={addChecklistItem} className="text-xs font-medium px-3 py-1.5 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition no-print">
+            + 항목 추가
+          </button>
+        </div>
+
+        {urgentReminders.length > 0 && (
+          <div className="rounded-xl mb-3 overflow-hidden" style={{ background: 'var(--accent-soft)', border: '1px solid rgba(200,70,48,0.15)' }}>
+            <div className="px-4 py-2 text-[11px] uppercase tracking-wider font-semibold" style={{ color: 'var(--accent)' }}>자동 알림 (입고 임박)</div>
+            {urgentReminders.map(r => <ChecklistRow key={r.id} item={r} editable={false} />)}
+          </div>
+        )}
+
+        <div className="rounded-2xl bg-white border hairline overflow-hidden" style={{ boxShadow: 'var(--shadow-sm)' }}>
+          {checklist.length === 0 ? (
+            <div className="p-6 text-center text-sm text-[var(--ink-muted)]">체크리스트가 비어있어요. 위의 "+ 항목 추가" 버튼으로 추가하세요.</div>
+          ) : (
+            checklist.map(c => (
+              <ChecklistRow key={c.id} item={c} editable onEdit={() => editChecklistItem(c.id)} onDelete={() => deleteChecklistItem(c.id)} />
+            ))
+          )}
+        </div>
+        <p className="text-xs text-[var(--ink-muted)] mt-3 no-print">체크 상태는 페이지를 닫으면 초기화돼요. 항목 자체는 저장됩니다.</p>
+      </div>
+
+      <div className="no-print">
+        <button onClick={() => window.print()} className="text-sm font-medium px-4 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition">
+          🖨️ 이 페이지 인쇄
+        </button>
+        <p className="text-xs text-[var(--ink-muted)] mt-2">브라우저 인쇄 다이얼로그가 열려요. PDF로 저장도 가능합니다.</p>
+      </div>
+
+      {detailItem && <ItemDetailModal item={detailItem} onClose={() => setDetailItem(null)} />}
+    </div>
+  );
+}
+
+function PreviewStat({ label, value, unit, mono }) {
+  return (
+    <div className="rounded-xl p-4 bg-white border hairline">
+      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">{label}</div>
+      <div className="flex items-baseline gap-1">
+        <div className={`text-2xl font-bold tracking-tight ${mono ? 'num' : ''}`}>{value}</div>
+        {unit && <div className="text-xs text-[var(--ink-muted)]">{unit}</div>}
+      </div>
+    </div>
+  );
+}
+
+function BoothItemCard({ item, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-lg bg-white border hairline-soft p-3 relative card-hover text-left w-full"
+      style={{ boxShadow: 'var(--shadow-sm)' }}
+    >
+      <div className="aspect-square rounded mb-2 overflow-hidden relative" style={{ background: 'var(--surface-2)' }}>
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-3xl">{ITEM_TYPES[item.type].icon}</div>
+        )}
+        {item.isAdult && (
+          <div className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white" style={{ background: 'var(--accent)' }}>19</div>
+        )}
+      </div>
+      <div className="text-[12px] font-medium leading-snug line-clamp-2 mb-1.5" style={{ minHeight: '2.4em' }}>{item.name}</div>
+      <div className="mb-1.5"><ItemBadges item={item} /></div>
+      <div className="flex items-baseline justify-between text-[11px]">
+        <div className="font-semibold num">
+          {item.price > 0 ? `₩${item.price.toLocaleString()}` : <span style={{ color: 'var(--accent)' }}>FREE</span>}
+        </div>
+        {item.quantity > 0 && <div className="text-[var(--ink-muted)] num">×{item.quantity}</div>}
+      </div>
+    </button>
+  );
+}
+
+function ItemDetailModal({ item, onClose }) {
+  const days = daysUntil(item.deadline);
+  const flow = STAGE_FLOWS[item.type] || STAGE_FLOWS.etc;
+  const stageLabel = flow.find(s => s.id === item.stage)?.label || '–';
+  const isDone = item.stage === 'done';
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-[60] overlay-enter" onClick={onClose}></div>
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-6 pointer-events-none">
+        <div className="bg-white rounded-2xl max-w-md w-full modal-enter pointer-events-auto overflow-hidden" style={{ boxShadow: 'var(--shadow-lg)' }}>
+          {item.image && (
+            <div className="aspect-[4/3] relative overflow-hidden" style={{ background: 'var(--surface-2)' }}>
+              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+              {item.isAdult && (
+                <div className="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: 'var(--accent)' }}>19</div>
+              )}
+            </div>
+          )}
+          <div className="p-6">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] mb-1">{ITEM_TYPES[item.type].icon} {ITEM_TYPES[item.type].label}</div>
+                <h3 className="text-xl font-bold tracking-tight leading-snug">{item.name}</h3>
+              </div>
+              <button onClick={onClose} className="text-[var(--ink-muted)] hover:text-[var(--ink)] text-2xl leading-none shrink-0 -mt-1">×</button>
+            </div>
+
+            <div className="mb-4">
+              <ItemBadges item={item} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+              <DetailRow label="가격" value={item.price > 0 ? `₩${item.price.toLocaleString()}` : '무료배포'} accent={item.price === 0} />
+              <DetailRow label="수량" value={item.quantity > 0 ? `${item.quantity}개` : '–'} />
+              <DetailRow label="진행 단계" value={stageLabel} done={isDone} />
+              <DetailRow
+                label="마감"
+                value={item.deadline ? `${formatDate(item.deadline)}${days !== null ? ` (${days < 0 ? `+${Math.abs(days)}일` : days === 0 ? 'D-day' : `D-${days}`})` : ''}` : '미정'}
+                urgent={!isDone && days !== null && days <= 7}
+              />
+            </div>
+
+            {item.memo && (
+              <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--surface-2)' }}>
+                <div className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">메모</div>
+                <p className="text-sm text-[var(--ink-soft)] leading-relaxed whitespace-pre-wrap">{item.memo}</p>
+              </div>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full text-sm font-medium px-4 py-2.5 rounded-full text-white"
+              style={{ background: 'var(--ink)' }}
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DetailRow({ label, value, accent, done, urgent }) {
+  const color = accent ? 'var(--accent)' : done ? 'var(--ok)' : urgent ? 'var(--accent)' : 'var(--ink)';
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-muted)] mb-0.5">{label}</div>
+      <div className="font-semibold num" style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function ChecklistRow({ item, editable, onEdit, onDelete }) {
+  const [checked, setChecked] = useState(false);
+  return (
+    <div className="w-full flex items-center gap-3 py-3 px-4 hover:bg-[var(--surface-2)] transition border-b hairline-soft last:border-0">
+      <button onClick={() => setChecked(!checked)} className="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition" style={{ borderColor: checked ? 'var(--ink)' : 'var(--line)', background: checked ? 'var(--ink)' : 'transparent' }}>
+        {checked && <span className="text-white text-[10px] leading-none">✓</span>}
+      </button>
+      <button onClick={() => setChecked(!checked)} className={`text-sm flex-1 text-left ${checked ? 'text-[var(--ink-muted)] line-through' : ''}`}>
+        {item.text}
+      </button>
+      {editable && (
+        <div className="flex gap-1 no-print">
+          <button onClick={onEdit} className="text-xs text-[var(--ink-muted)] hover:text-[var(--ink)] px-2 py-1">편집</button>
+          <button onClick={onDelete} className="text-xs text-[var(--ink-muted)] hover:text-[var(--accent)] px-2 py-1">삭제</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemEditor({ eventId, item, onSave, onDelete, onClose }) {
+  const [form, setForm] = useState(() => item || {
+    id: uid('item'),
+    name: '',
+    type: 'zine',
+    zineKind: 'solo',
+    isNew: true,
+    isAdult: false,
+    stage: STAGE_FLOWS.zine[0].id,
+    price: 0,
+    quantity: 0,
+    deadline: '',
+    memo: '',
+    image: null,
+  });
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const flow = STAGE_FLOWS[form.type];
+    if (!flow.find(s => s.id === form.stage)) {
+      setForm(f => ({ ...f, stage: flow[0].id }));
+    }
+  }, [form.type]);
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) return;
+    onSave({ ...form, price: Number(form.price) || 0, quantity: Number(form.quantity) || 0 });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있어요.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      setForm(f => ({ ...f, image: compressed }));
+    } catch (err) {
+      alert('이미지 처리 중 오류가 발생했어요.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = () => setForm(f => ({ ...f, image: null }));
+  const flow = STAGE_FLOWS[form.type];
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40 overlay-enter" onClick={onClose}></div>
+      <div className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-50 panel-enter overflow-y-auto" style={{ boxShadow: '-12px 0 40px rgba(0,0,0,0.1)' }}>
+        <div className="sticky top-0 bg-white border-b hairline px-6 py-4 flex items-center justify-between z-10">
+          <div className="text-lg font-semibold tracking-tight">{item ? '품목 편집' : '새 품목'}</div>
+          <button onClick={onClose} className="text-[var(--ink-muted)] hover:text-[var(--ink)] text-2xl leading-none">×</button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <Field label="품목 이름" required>
+            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="예: 단편집 「겨울 항해」" className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus text-[15px]" autoFocus />
+          </Field>
+
+          <Field label="이미지 (선택)">
+            <div className="flex items-start gap-3">
+              <div className="w-24 h-24 rounded-lg border hairline overflow-hidden shrink-0" style={{ background: 'var(--surface-2)' }}>
+                {form.image ? (
+                  <img src={form.image} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-3xl text-[var(--ink-muted)]">{ITEM_TYPES[form.type].icon}</div>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="text-xs font-medium px-3 py-2 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition w-full">
+                  {uploading ? '업로드 중...' : form.image ? '이미지 변경' : '이미지 업로드'}
+                </button>
+                {form.image && (
+                  <button onClick={removeImage} className="text-xs font-medium px-3 py-2 rounded-full text-[var(--accent)] hover:bg-[var(--accent-soft)] transition w-full">
+                    이미지 제거
+                  </button>
+                )}
+                <p className="text-[10px] text-[var(--ink-muted)] leading-snug">자동으로 압축돼요 (최대 1200px)</p>
+              </div>
+            </div>
+          </Field>
+
+          <Field label="종류">
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(ITEM_TYPES).map(([key, t]) => (
+                <button key={key} onClick={() => setForm(f => ({ ...f, type: key }))} className="px-2 py-3 rounded-lg border text-xs transition" style={{ background: form.type === key ? 'var(--ink)' : 'var(--surface-2)', color: form.type === key ? 'white' : 'var(--ink-soft)', borderColor: form.type === key ? 'var(--ink)' : 'var(--line)' }}>
+                  <div className="text-base mb-0.5">{t.icon}</div>
+                  <div>{t.label}</div>
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          {form.type === 'zine' && (
+            <>
+              <Field label="회지 종류">
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(ZINE_KINDS).map(([key, k]) => (
+                    <button key={key} onClick={() => setForm(f => ({ ...f, zineKind: key }))} className="px-2 py-2 rounded-lg border text-xs font-medium transition" style={{ background: form.zineKind === key ? 'var(--indigo)' : 'var(--surface-2)', color: form.zineKind === key ? 'white' : 'var(--ink-soft)', borderColor: form.zineKind === key ? 'var(--indigo)' : 'var(--line)' }}>
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="발간 상태">
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setForm(f => ({ ...f, isNew: true }))} className="px-2 py-2 rounded-lg border text-xs font-medium transition" style={{ background: form.isNew ? 'var(--ok)' : 'var(--surface-2)', color: form.isNew ? 'white' : 'var(--ink-soft)', borderColor: form.isNew ? 'var(--ok)' : 'var(--line)' }}>
+                    🆕 신간
+                  </button>
+                  <button onClick={() => setForm(f => ({ ...f, isNew: false }))} className="px-2 py-2 rounded-lg border text-xs font-medium transition" style={{ background: !form.isNew ? 'var(--ink-muted)' : 'var(--surface-2)', color: !form.isNew ? 'white' : 'var(--ink-soft)', borderColor: !form.isNew ? 'var(--ink-muted)' : 'var(--line)' }}>
+                    📚 구간
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="성인본">
+                <button onClick={() => setForm(f => ({ ...f, isAdult: !f.isAdult }))} className="w-full px-3 py-2.5 rounded-lg border text-sm font-medium transition flex items-center justify-between" style={{ background: form.isAdult ? 'var(--accent)' : 'var(--surface-2)', color: form.isAdult ? 'white' : 'var(--ink-soft)', borderColor: form.isAdult ? 'var(--accent)' : 'var(--line)' }}>
+                  <span>{form.isAdult ? '🔞 성인본 (19금)' : '일반본'}</span>
+                  <span className="text-xs opacity-80">{form.isAdult ? '비활성화' : '활성화'}</span>
+                </button>
+              </Field>
+            </>
+          )}
+
+          <Field label="진행 단계">
+            <div className="flex flex-wrap gap-1.5">
+              {flow.map(s => (
+                <button key={s.id} onClick={() => setForm(f => ({ ...f, stage: s.id }))} className="text-xs px-3 py-1.5 rounded-full border transition" style={{ background: form.stage === s.id ? 'var(--accent)' : 'var(--surface-2)', color: form.stage === s.id ? 'white' : 'var(--ink-soft)', borderColor: form.stage === s.id ? 'var(--accent)' : 'var(--line)' }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="가격 (원)">
+              <input type="number" value={form.price || ''} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0 = 무료" className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus num" />
+              <p className="text-[10px] text-[var(--ink-muted)] mt-1 leading-snug">0원이면 자동으로 무료배포 뱃지가 붙어요</p>
+            </Field>
+            <Field label="예상 수량">
+              <input type="number" value={form.quantity || ''} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} placeholder="0" className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus num" />
+            </Field>
+          </div>
+
+          <Field label="입고 예정일 / 마감">
+            <input type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus num" />
+          </Field>
+
+          <Field label="메모">
+            <textarea value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} placeholder="발주처, 인쇄 옵션, 메모 등" rows={3} className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus text-sm resize-none" />
+          </Field>
+        </div>
+
+        <div className="sticky bottom-0 bg-white border-t hairline px-6 py-4 flex gap-2">
+          {item && (
+            <button onClick={onDelete} className="text-sm font-medium px-4 py-2.5 rounded-full text-[var(--accent)] hover:bg-[var(--accent-soft)] transition">삭제</button>
+          )}
+          <button onClick={onClose} className="ml-auto text-sm font-medium px-4 py-2.5 rounded-full text-[var(--ink-soft)]">취소</button>
+          <button onClick={handleSubmit} disabled={!form.name.trim()} className="text-sm font-medium px-5 py-2.5 rounded-full text-white transition disabled:opacity-40" style={{ background: 'var(--ink)' }}>
+            저장
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Field({ label, required, children }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium uppercase tracking-wider text-[var(--ink-muted)] mb-1.5">
+        {label} {required && <span className="text-[var(--accent)]">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function EventEditor({ event, onSave, onClose }) {
+  const [form, setForm] = useState(() => event || {
+    id: uid('evt'),
+    name: '',
+    date: '',
+    location: '',
+    memo: '',
+    items: [],
+    checklist: DEFAULT_CHECKLIST.map(t => ({ id: uid('c'), text: t })),
+  });
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) return;
+    onSave(form);
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40 overlay-enter" onClick={onClose}></div>
+      <div className="fixed top-0 right-0 bottom-0 w-full max-w-md bg-white z-50 panel-enter overflow-y-auto" style={{ boxShadow: '-12px 0 40px rgba(0,0,0,0.1)' }}>
+        <div className="sticky top-0 bg-white border-b hairline px-6 py-4 flex items-center justify-between z-10">
+          <div className="text-lg font-semibold tracking-tight">{event ? '행사 편집' : '새 행사'}</div>
+          <button onClick={onClose} className="text-[var(--ink-muted)] hover:text-[var(--ink)] text-2xl leading-none">×</button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <Field label="행사 이름" required>
+            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="예: ○○ 4회 / 코믹월드 12월" className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus text-[15px]" autoFocus />
+          </Field>
+          <Field label="날짜">
+            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus num" />
+          </Field>
+          <Field label="부스 위치">
+            <input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="예: A-12 / 동홀 B-05" className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus" />
+          </Field>
+          <Field label="메모">
+            <textarea value={form.memo} onChange={e => setForm(f => ({ ...f, memo: e.target.value }))} placeholder="입금 정보, 동선, 함께하는 사람 등" rows={3} className="w-full px-3 py-2.5 rounded-lg border hairline bg-[var(--surface-2)] ring-focus text-sm resize-none" />
+          </Field>
+        </div>
+
+        <div className="sticky bottom-0 bg-white border-t hairline px-6 py-4 flex gap-2">
+          <button onClick={onClose} className="ml-auto text-sm font-medium px-4 py-2.5 rounded-full text-[var(--ink-soft)]">취소</button>
+          <button onClick={handleSubmit} disabled={!form.name.trim()} className="text-sm font-medium px-5 py-2.5 rounded-full text-white transition disabled:opacity-40" style={{ background: 'var(--ink)' }}>
+            저장
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WelcomeModal({ onAccept, onDecline }) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40 overlay-enter"></div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 overlay-enter">
+        <div className="bg-white rounded-2xl max-w-md w-full p-8" style={{ boxShadow: 'var(--shadow-lg)' }}>
+          <div className="text-xs uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-3">welcome</div>
+          <h2 className="text-2xl font-bold tracking-tight mb-2">부스 매니저에 오신 걸 환영해요</h2>
+          <p className="text-[var(--ink-soft)] text-sm leading-relaxed mb-6">
+            행사별로 회지·굿즈를 한곳에서 관리하는 도구입니다.
+            모든 데이터는 <span className="font-semibold">이 브라우저에만</span> 저장돼요 — 서버로 전송되지 않습니다.
+          </p>
+          <p className="text-[var(--ink-soft)] text-sm leading-relaxed mb-8">
+            처음이신가요? 예시 행사를 하나 만들어 두면 어떻게 쓰는지 둘러보기 편해요.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onDecline} className="flex-1 text-sm font-medium px-4 py-3 rounded-full border hairline bg-white hover:bg-[var(--surface-2)] transition">빈 상태로 시작</button>
+            <button onClick={onAccept} className="flex-1 text-sm font-medium px-4 py-3 rounded-full text-white" style={{ background: 'var(--ink)' }}>예시로 시작</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+try {
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<App />);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const loader = document.getElementById('loader');
+      if (loader) {
+        loader.classList.add('hide');
+        setTimeout(() => loader.remove(), 400);
+      }
+    });
+  });
+} catch (err) {
+  console.error('Mount failed:', err);
+  const loader = document.getElementById('loader');
+  if (loader) {
+    loader.innerHTML = '<div style="color:#c84630;font-size:14px;text-align:center;padding:20px;">앱 로드 중 오류가 발생했어요.<br/>콘솔을 확인해주세요.<br/><br/><code style="font-size:12px">' + (err.message || err) + '</code></div>';
+  }
+}
+</script>
+</body>
+</html>
